@@ -14,7 +14,7 @@ import {
 import { signIn, signUp, useSession } from '@/lib/auth/client';
 import { setInviteCookie } from '@/lib/client/invite';
 import { trpc } from '@/lib/client/trpc';
-import LoreMark from '@/components/LoreMark';
+import { LoreWordmark } from '@/components/LoreMark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -273,9 +273,8 @@ export function AuthFrame({
 }) {
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col px-6 pb-10 pt-[max(2rem,env(safe-area-inset-top))]">
-      <Link href={HOME_URL} className="flex items-center gap-2 font-serif text-2xl font-medium">
-        <LoreMark className="size-5" />
-        Lore
+      <Link href={HOME_URL} className="flex items-center self-start">
+        <LoreWordmark className="text-2xl" />
       </Link>
       <div className="flex flex-1 flex-col justify-center py-10">
         <h1 className="font-serif text-3xl font-medium tracking-tight">{title}</h1>

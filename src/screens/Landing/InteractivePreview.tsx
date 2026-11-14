@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import LoreMark from '@/components/LoreMark';
+import { LoreWordmark } from '@/components/LoreMark';
 import UserAvatar from '@/components/UserAvatar';
 
 type PreviewTab = 'voice' | 'collection' | 'vibes' | 'story' | 'mcp';
@@ -179,10 +179,7 @@ export default function InteractivePreview() {
           <div className="grid md:grid-cols-[220px_1fr]">
             {/* Authentic Lore Desktop Sidebar */}
             <aside className="hidden flex-col border-r bg-muted/10 p-4 md:flex">
-              <div className="mb-5 flex items-center gap-1.5 px-2 font-serif text-xl font-medium">
-                <LoreMark className="size-4" />
-                Lore
-              </div>
+              <LoreWordmark className="mb-5 px-2 text-xl" />
 
               <button
                 type="button"

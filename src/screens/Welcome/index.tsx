@@ -3,7 +3,7 @@ import { Lock, Mic, Users } from 'lucide-react';
 import Link from 'next/link';
 import { LOGIN_URL, SIGNUP_URL } from '@/constants/pages';
 import { trpc } from '@/lib/client/trpc';
-import LoreMark from '@/components/LoreMark';
+import { LoreWordmark } from '@/components/LoreMark';
 import { Button } from '@/components/ui/button';
 
 export default function WelcomeScreen() {
@@ -12,10 +12,7 @@ export default function WelcomeScreen() {
 
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-xl flex-col px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="flex items-center gap-2 font-serif text-2xl font-medium">
-        <LoreMark className="size-5" />
-        Lore
-      </div>
+      <LoreWordmark className="self-start text-2xl" />
       <div className="flex flex-1 flex-col justify-center py-12">
         <h1 className="font-serif text-5xl font-medium leading-[1.05] tracking-tight sm:text-6xl">
           Keep the little things.

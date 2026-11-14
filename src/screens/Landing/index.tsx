@@ -30,7 +30,7 @@ import { useTheme } from 'next-themes';
 import Head from 'next/head';
 import { toast } from 'sonner';
 import { GITHUB_URL } from '@/constants/pages';
-import LoreMark from '@/components/LoreMark';
+import { LoreWordmark } from '@/components/LoreMark';
 import { Button } from '@/components/ui/button';
 import HostingSection from './HostingSection';
 import InteractivePreview from './InteractivePreview';
@@ -202,12 +202,8 @@ export default function LandingScreen() {
       <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:px-10">
           <div className="flex items-center gap-3">
-            <a
-              href="#top"
-              className="flex items-center gap-2 font-serif text-2xl font-medium tracking-tight"
-            >
-              <LoreMark className="size-5" />
-              Lore
+            <a href="#top" className="flex items-center">
+              <LoreWordmark className="text-2xl tracking-tight" />
             </a>
             <span className="hidden rounded-full border bg-muted/40 px-2.5 py-0.5 text-[11px] text-muted-foreground sm:inline-block">
               Open Source · MIT
@@ -576,10 +572,7 @@ export default function LandingScreen() {
       <footer className="border-t px-6 py-12 text-xs text-muted-foreground sm:px-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 font-serif text-lg font-medium text-foreground">
-              <LoreMark className="size-4" />
-              Lore
-            </span>
+            <LoreWordmark className="text-lg text-foreground" />
             <span>·</span>
             <span>A private place for your family’s and friends’ memories.</span>
           </div>

@@ -6,13 +6,13 @@ interface Props {
 }
 
 /** Lore quill-and-book mark shared across the app, loading state, and marketing site. */
-export default function LoreMark({ className, 'aria-label': ariaLabel }: Props = {}) {
+export default function LoreMark({ className = 'size-5', 'aria-label': ariaLabel }: Props = {}) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 440 540"
+      viewBox="24 18 392 504"
       fill="currentColor"
-      className={cn('size-5 shrink-0', className)}
+      className={cn('shrink-0', className)}
       role={ariaLabel ? 'img' : undefined}
       aria-label={ariaLabel}
       aria-hidden={ariaLabel ? undefined : true}

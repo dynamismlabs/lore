@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils';
 import { useOnline } from '@/hooks/useOnline';
 import { useViewer } from '@/hooks/useViewer';
 import { useCapture } from '@/components/Capture/CaptureProvider';
-import LoreMark from '@/components/LoreMark';
+import LoreMark, { LoreWordmark } from '@/components/LoreMark';
 import { useOutbox } from '@/components/Outbox/OutboxProvider';
 import QuickInviteDialog from '@/components/QuickInviteDialog';
 import UserAvatar from '@/components/UserAvatar';
@@ -98,12 +98,8 @@ export default function AppShell({ children, captureCollectionId }: Props) {
     <div className="min-h-[100dvh] md:flex">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r px-2.5 py-5 md:flex">
-        <Link
-          href={HOME_URL}
-          className="mb-6 flex items-center gap-2 px-3 font-serif text-2xl font-medium"
-        >
-          <LoreMark className="size-5" />
-          Lore
+        <Link href={HOME_URL} className="mb-6 flex items-center px-3">
+          <LoreWordmark className="text-2xl" />
         </Link>
 
         {/* One button you can't miss. Writing and photos are a click away, quietly. */}
