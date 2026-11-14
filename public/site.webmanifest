@@ -1,0 +1,60 @@
+{
+  "id": "/",
+  "name": "Lore",
+  "short_name": "Lore",
+  "description": "Keep your family’s memories together.",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Record a memory",
+      "short_name": "Record",
+      "url": "/?capture=record"
+    },
+    {
+      "name": "Write a memory",
+      "short_name": "Write",
+      "url": "/?capture=write"
+    },
+    {
+      "name": "Today’s vibe",
+      "short_name": "Vibe",
+      "url": "/?capture=vibe"
+    }
+  ]
+}

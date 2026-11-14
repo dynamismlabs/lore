@@ -1,0 +1,42 @@
+// Cloudflare Worker config for Lore (built by @opennextjs/cloudflare).
+//
+// This file is the shared template. `pnpm deploy:cloudflare` creates the D1
+// database + R2 bucket in your account and writes a git-ignored
+// `wrangler.deploy.jsonc` with their IDs, so forks never commit account IDs.
+// `pnpm dev` uses this file as-is with local (Miniflare) D1 and R2.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lore",
+  "workers_dev": true,
+  // worker.ts = the OpenNext app (.open-next/worker.js) + the nightly backup cron.
+  "main": "worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "lore" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lore",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "src/db/migrations/sqlite",
+    },
+  ],
+  // Private bucket: media is only ever served through /api/media after an access check.
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "lore-media" },
+    // Nightly SQL dumps of the database (see worker.ts). Lifecycle keeps 90 days.
+    { "binding": "BACKUPS", "bucket_name": "lore-backups" },
+  ],
+  // 03:17 UTC daily — the nightly backup.
+  "triggers": { "crons": ["17 3 * * *"] },
+  // Workers AI: Whisper transcription with no API key (used when GROQ_API_KEY is unset).
+  "ai": { "binding": "AI" },
+  "vars": {
+    "SIGNUP_MODE": "invite",
+  },
+  "observability": { "enabled": true },
+}
