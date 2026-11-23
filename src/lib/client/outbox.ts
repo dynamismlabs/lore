@@ -46,6 +46,8 @@ export type NewOutboxItem = Omit<OutboxItem, 'createdAt' | 'uploaded' | 'attempt
 const DB_NAME = 'lore-outbox';
 const STORE = 'items';
 const CHANNEL = 'lore-outbox';
+/** Recordings at least this long get looked through for separate moments. */
+export const AUTO_MOMENTS_MIN_MS = 3 * 60 * 1000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -259,6 +261,12 @@ export async function sendItem(
   if (audio) {
     client.media.transcribe
       .mutate({ id: audio.id })
+      .then(async ({ status }) => {
+        // A long talk usually covers several moments; look for them right away.
+        if (status === 'done' && (audio.durationMs ?? 0) >= AUTO_MOMENTS_MIN_MS) {
+          await client.moments.suggest.mutate({ mediaId: audio.id });
+        }
+      })
       .catch((error) => console.warn('[transcribe]', error));
   }
   if (item.replaceDay) {

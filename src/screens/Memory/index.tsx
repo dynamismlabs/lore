@@ -4,7 +4,7 @@ import { ChevronLeft, Loader2, MoreHorizontal, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'sonner';
-import { HOME_URL, collectionUrl } from '@/constants/pages';
+import { HOME_URL, collectionUrl, memoryUrl } from '@/constants/pages';
 import { longDate } from '@/lib/client/dates';
 import { isConnectionError } from '@/lib/client/errors';
 import { type Memory, trpc } from '@/lib/client/trpc';
@@ -28,6 +28,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import Comments from './Comments';
+import Moments from './Moments';
 import MoveDialog from './MoveDialog';
 import PeopleTags from './PeopleTags';
 
@@ -186,12 +187,17 @@ function MemoryBody({ memory, back }: { memory: Memory; back: React.ReactNode })
         {memory.isMine ? (
           <DateField
             value={memory.occurredAt}
-            onChange={(occurredAt) => update.mutate({ id: memory.id, occurredAt })}
+            precision={memory.occurredPrecision}
+            onChange={(occurredAt, occurredPrecision) =>
+              update.mutate({ id: memory.id, occurredAt, occurredPrecision })
+            }
           >
-            {longDate(memory.occurredAt)}
+            {longDate(memory.occurredAt, memory.occurredPrecision)}
           </DateField>
         ) : (
-          <p className="text-sm text-muted-foreground">{longDate(memory.occurredAt)}</p>
+          <p className="text-sm text-muted-foreground">
+            {longDate(memory.occurredAt, memory.occurredPrecision)}
+          </p>
         )}
         {memory.title && (
           <h1 className="mt-2 font-serif text-4xl font-medium leading-tight tracking-tight">
@@ -217,6 +223,21 @@ function MemoryBody({ memory, back }: { memory: Memory; back: React.ReactNode })
       </header>
 
       <div className="mt-8 flex flex-col gap-6">
+        {memory.clips.map((clip) => (
+          <section key={`${clip.mediaId}-${clip.startMs}`} className="flex flex-col gap-2">
+            <AudioPlayer src={clip.url} startMs={clip.startMs} endMs={clip.endMs} size="large" />
+            <p className="text-sm text-muted-foreground">
+              From{' '}
+              <Link
+                href={memoryUrl(clip.source.id)}
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                {clip.source.title ? `“${clip.source.title}”` : 'a conversation'}
+              </Link>{' '}
+              · {longDate(clip.source.occurredAt, clip.source.occurredPrecision)}
+            </p>
+          </section>
+        ))}
         {memory.media.map((item) => {
           if (item.kind === 'text') return <Markdown key={item.id}>{item.text ?? ''}</Markdown>;
           if (item.kind === 'audio')
@@ -224,10 +245,12 @@ function MemoryBody({ memory, back }: { memory: Memory; back: React.ReactNode })
           return null;
         })}
         {visuals.length > 0 && <PhotoGrid items={visuals} variant="full" />}
-        {!texts.length && !audios.length && !visuals.length && (
+        {!texts.length && !audios.length && !visuals.length && !memory.clips.length && (
           <p className="text-muted-foreground">This memory is empty.</p>
         )}
       </div>
+
+      {audios.length > 0 && <Moments memory={memory} className="mt-10" />}
 
       <PeopleTags memory={memory} className="mt-8" />
 

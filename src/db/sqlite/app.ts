@@ -14,9 +14,20 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 import { users } from './auth';
-import { MEDIA_KINDS, MEMBER_ROLES, STORY_FORMATS, TRANSCRIPT_STATUSES } from '../constants';
+import {
+  DATE_PRECISIONS,
+  MEDIA_KINDS,
+  MEMBER_ROLES,
+  MOMENT_STATUSES,
+  STORY_FORMATS,
+  type SuggestedPerson,
+  TRANSCRIPT_STATUSES,
+  type TranscriptSegment,
+} from '../constants';
 
 const timestamp = (name: string) => integer(name, { mode: 'timestamp_ms' });
+/** JSON stored as text. Postgres uses jsonb; Drizzle returns the parsed value on both. */
+const json = <T>(name: string) => text(name, { mode: 'json' }).$type<T>();
 const now = () => new Date();
 
 export const collections = sqliteTable(
@@ -92,6 +103,10 @@ export const stories = sqliteTable(
     format: text('format', { enum: STORY_FORMATS }),
     // When the memory happened (photo EXIF date, or when it was captured).
     occurredAt: timestamp('occurred_at').notNull().$defaultFn(now),
+    // 'month' / 'year': only that much is known; occurredAt is noon UTC on the first day.
+    occurredPrecision: text('occurred_precision', { enum: DATE_PRECISIONS })
+      .notNull()
+      .default('day'),
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
     updatedAt: timestamp('updated_at').notNull().$defaultFn(now),
   },
@@ -117,6 +132,8 @@ export const storyMedia = sqliteTable(
     // Markdown for text, transcript for audio/video, caption for images.
     text: text('text'),
     transcriptStatus: text('transcript_status', { enum: TRANSCRIPT_STATUSES }),
+    // When each line of the transcript was said, so moments can point into the audio.
+    transcriptSegments: json<TranscriptSegment[]>('transcript_segments'),
     durationMs: integer('duration_ms'),
     width: integer('width'),
     height: integer('height'),
@@ -152,6 +169,8 @@ export const people = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     relationship: text('relationship'),
+    // YYYY-MM-DD. A calendar date, not an instant, so it never shifts with time zones.
+    birthDate: text('birth_date'),
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
     updatedAt: timestamp('updated_at').notNull().$defaultFn(now),
   },
@@ -206,4 +225,55 @@ export const reactions = sqliteTable(
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
   },
   (t) => [primaryKey({ columns: [t.storyId, t.userId, t.emoji] })],
+);
+
+/**
+ * A memory that plays a stretch of a recording from another memory — a moment
+ * from a long conversation. Playback goes through the recording's own media
+ * id, so it needs read access to the conversation; deleting the conversation
+ * removes the clip and leaves the moment as text.
+ */
+export const storyClips = sqliteTable(
+  'story_clips',
+  {
+    storyId: text('story_id')
+      .notNull()
+      .references(() => stories.id, { onDelete: 'cascade' }),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => storyMedia.id, { onDelete: 'cascade' }),
+    startMs: integer('start_ms').notNull(),
+    endMs: integer('end_ms').notNull(),
+    createdAt: timestamp('created_at').notNull().$defaultFn(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.storyId, t.mediaId, t.startMs] }),
+    index('story_clips_media_id_idx').on(t.mediaId),
+  ],
+);
+
+/** Moments a model found in a recording, waiting for the author to add or dismiss them. */
+export const momentSuggestions = sqliteTable(
+  'moment_suggestions',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => storyMedia.id, { onDelete: 'cascade' }),
+    title: text('title'),
+    // Markdown.
+    summary: text('summary').notNull(),
+    occurredAt: timestamp('occurred_at').notNull(),
+    occurredPrecision: text('occurred_precision', { enum: DATE_PRECISIONS })
+      .notNull()
+      .default('day'),
+    startMs: integer('start_ms'),
+    endMs: integer('end_ms'),
+    people: json<SuggestedPerson[]>('people').notNull().default([]),
+    status: text('status', { enum: MOMENT_STATUSES }).notNull().default('pending'),
+    // The memory made from it, once added.
+    storyId: text('story_id').references(() => stories.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().$defaultFn(now),
+  },
+  (t) => [index('moment_suggestions_media_id_idx').on(t.mediaId)],
 );

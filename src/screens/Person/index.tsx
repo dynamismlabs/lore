@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { ChevronLeft, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -54,7 +55,15 @@ export default function PersonScreen({ id }: { id: string }) {
             <PageHeader
               back={back}
               title={person.name}
-              subtitle={person.relationship}
+              subtitle={
+                [
+                  person.relationship,
+                  person.birthDate &&
+                    `Born ${format(new Date(`${person.birthDate}T12:00:00`), 'MMMM d, yyyy')}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || null
+              }
               actions={
                 person.isMine && (
                   <DropdownMenu>
@@ -94,7 +103,12 @@ export default function PersonScreen({ id }: { id: string }) {
               <PersonFormDialog
                 open={editing}
                 onOpenChange={setEditing}
-                existing={{ id, name: person.name, relationship: person.relationship }}
+                existing={{
+                  id,
+                  name: person.name,
+                  relationship: person.relationship,
+                  birthDate: person.birthDate,
+                }}
               />
             )}
           </>

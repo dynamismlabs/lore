@@ -51,7 +51,7 @@ export default function MemoryCard({ memory, hideCollection = false }: Props) {
           className="shrink-0 text-xs text-muted-foreground"
           dateTime={memory.occurredAt.toISOString()}
         >
-          {friendlyDate(memory.occurredAt)}
+          {friendlyDate(memory.occurredAt, memory.occurredPrecision)}
         </time>
       </header>
 

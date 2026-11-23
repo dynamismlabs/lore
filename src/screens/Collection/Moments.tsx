@@ -5,8 +5,9 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { Loader2, Play } from 'lucide-react';
+import { approximateLabel, periodOf } from '@/lib/client/dates';
 import { isConnectionError } from '@/lib/client/errors';
-import { trpc } from '@/lib/client/trpc';
+import { type Memory, trpc } from '@/lib/client/trpc';
 import { cn } from '@/lib/utils';
 import OfflineNotice from '@/components/OfflineNotice';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +19,7 @@ interface Props {
   onPlay: () => void;
 }
 
-const monthOf = (date: Date) => format(date, 'MMMM yyyy');
+const periodLabel = (memory: Memory) => periodOf(memory.occurredAt, memory.occurredPrecision).label;
 
 export default function Moments({ collectionId, empty, onPlay }: Props) {
   const query = trpc.stories.list.useInfiniteQuery(
@@ -75,15 +76,11 @@ export default function Moments({ collectionId, empty, onPlay }: Props) {
   return (
     <div>
       {memories.map((memory, i) => {
-        const newMonth =
-          i === 0 || monthOf(memory.occurredAt) !== monthOf(memories[i - 1].occurredAt);
+        const newMonth = i === 0 || periodLabel(memory) !== periodLabel(memories[i - 1]);
         return (
           <Fragment key={memory.id}>
             {newMonth && (
-              <MonthMarker
-                label={monthOf(memory.occurredAt)}
-                className={cn(i > 0 && 'mt-24 sm:mt-28')}
-              />
+              <MonthMarker label={periodLabel(memory)} className={cn(i > 0 && 'mt-24 sm:mt-28')} />
             )}
             <div className={newMonth ? 'mt-10 sm:mt-12' : 'mt-20 sm:mt-24'}>
               <Moment memory={memory} />
@@ -105,7 +102,8 @@ export default function Moments({ collectionId, empty, onPlay }: Props) {
           <div className="mb-4 h-[3px] w-12 rounded-full bg-foreground" aria-hidden />
           <p className="font-serif text-3xl font-medium tracking-tight">Where it began</p>
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            {format(first.occurredAt, 'MMMM d, yyyy')}
+            {approximateLabel(first.occurredAt, first.occurredPrecision) ??
+              format(first.occurredAt, 'MMMM d, yyyy')}
           </p>
           <button
             type="button"

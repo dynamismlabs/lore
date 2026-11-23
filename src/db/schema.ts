@@ -32,6 +32,8 @@ export const {
   storyPeople,
   comments,
   reactions,
+  storyClips,
+  momentSuggestions,
 } = schema;
 
 export { schema };

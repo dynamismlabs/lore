@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { Loader2, MessageCircle, Play } from 'lucide-react';
 import Link from 'next/link';
 import { memoryUrl } from '@/constants/pages';
+import { approximateLabel } from '@/lib/client/dates';
 import type { Memory } from '@/lib/client/trpc';
 import { cn } from '@/lib/utils';
 import AudioPlayer from '@/components/AudioPlayer';
@@ -36,12 +37,15 @@ export default function Moment({ memory }: Props) {
       <header className="flex items-center gap-3">
         <UserAvatar name={memory.author.name} image={memory.author.image} className="size-9" />
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-medium">{memory.isMine ? 'You' : memory.author.name}</p>
+          <p className="truncate text-sm font-medium">
+            {memory.isMine ? 'You' : memory.author.name}
+          </p>
           <time
             dateTime={memory.occurredAt.toISOString()}
             className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground"
           >
-            {format(memory.occurredAt, 'EEEE · MMMM d')}
+            {approximateLabel(memory.occurredAt, memory.occurredPrecision) ??
+              format(memory.occurredAt, 'EEEE · MMMM d')}
           </time>
         </div>
       </header>

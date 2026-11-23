@@ -4,10 +4,11 @@
  * playable strip; "On this day" brings back past years.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { differenceInCalendarYears, format, startOfMonth } from 'date-fns';
 import { Camera, Loader2, Mic, PenLine, Play } from 'lucide-react';
+import Link from 'next/link';
 import { memoryUrl } from '@/constants/pages';
+import { periodOf } from '@/lib/client/dates';
 import { formatDuration } from '@/lib/client/media';
 import { type Memory, trpc } from '@/lib/client/trpc';
 import { cn } from '@/lib/utils';
@@ -45,10 +46,11 @@ export default function TimelineScreen() {
   const months = useMemo(() => {
     const groups: { key: string; label: string; items: Memory[] }[] = [];
     for (const memory of memories) {
-      const key = format(memory.occurredAt, 'yyyy-MM');
+      // A memory known only to the year gets a section of its own ("2019").
+      const { key, label } = periodOf(memory.occurredAt, memory.occurredPrecision);
       let group = groups.at(-1);
       if (!group || group.key !== key) {
-        group = { key, label: format(memory.occurredAt, 'MMMM yyyy'), items: [] };
+        group = { key, label, items: [] };
         groups.push(group);
       }
       group.items.push(memory);
@@ -71,7 +73,8 @@ export default function TimelineScreen() {
     if (!node) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage();
+        if (entry.isIntersecting && feed.hasNextPage && !feed.isFetchingNextPage)
+          feed.fetchNextPage();
       },
       { rootMargin: '800px' },
     );
@@ -80,12 +83,17 @@ export default function TimelineScreen() {
   }, [feed]);
 
   const toggle = (id: string) =>
-    setSelected((current) => (current.includes(id) ? current.filter((c) => c !== id) : [...current, id]));
+    setSelected((current) =>
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+    );
 
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6 md:pt-8">
-        <PageHeader title="Timeline" subtitle="Every memory, across your collections, in the order it happened." />
+        <PageHeader
+          title="Timeline"
+          subtitle="Every memory, across your collections, in the order it happened."
+        />
 
         {!!collections?.length && collections.length > 1 && (
           <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Collections to show">
@@ -114,13 +122,21 @@ export default function TimelineScreen() {
                     className="w-56 shrink-0 snap-start overflow-hidden rounded-2xl border bg-card hover:border-foreground/20"
                   >
                     {image ? (
-                      <img src={image.url!} alt="" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                      <img
+                        src={image.url!}
+                        alt=""
+                        className="aspect-[4/3] w-full object-cover"
+                        loading="lazy"
+                      />
                     ) : null}
                     <div className="p-3">
                       <div className="text-xs text-muted-foreground">
-                        {years === 1 ? '1 year ago' : `${years} years ago`} · {format(memory.occurredAt, 'yyyy')}
+                        {years === 1 ? '1 year ago' : `${years} years ago`} ·{' '}
+                        {format(memory.occurredAt, 'yyyy')}
                       </div>
-                      <div className="mt-1 line-clamp-3 font-serif">{memorySummary(memory) || 'A memory'}</div>
+                      <div className="mt-1 line-clamp-3 font-serif">
+                        {memorySummary(memory) || 'A memory'}
+                      </div>
                     </div>
                   </Link>
                 );
@@ -141,10 +157,11 @@ export default function TimelineScreen() {
               Nothing here yet. Memories show up on the timeline by the date they happened.
             </p>
           ) : (
-            months.map((month) => {
+            months.map((month, index) => {
               const clips = secondsByMonth.get(month.key) ?? [];
               return (
-                <section key={month.key} className="mb-8">
+                // A period can repeat when "2019" and "January 2019" memories share a date.
+                <section key={`${month.key}-${index}`} className="mb-8">
                   <div className="sticky top-0 z-10 -mx-4 mb-3 flex items-center justify-between bg-background/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
                     <h2 className="font-serif text-xl">{month.label}</h2>
                     {clips.length > 0 && (
@@ -153,7 +170,8 @@ export default function TimelineScreen() {
                         onClick={() => setPlayer({ clips, title: month.label })}
                         className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs hover:bg-accent"
                       >
-                        <Play className="size-3 fill-current" /> {clips.length} {clips.length === 1 ? 'second' : 'seconds'}
+                        <Play className="size-3 fill-current" /> {clips.length}{' '}
+                        {clips.length === 1 ? 'second' : 'seconds'}
                       </button>
                     )}
                   </div>
@@ -169,15 +187,27 @@ export default function TimelineScreen() {
             })
           )}
           <div ref={sentinel} />
-          {feed.isFetchingNextPage && <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />}
+          {feed.isFetchingNextPage && (
+            <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+          )}
         </div>
       </main>
-      {player && <SecondsPlayer clips={player.clips} title={player.title} onClose={() => setPlayer(null)} />}
+      {player && (
+        <SecondsPlayer clips={player.clips} title={player.title} onClose={() => setPlayer(null)} />
+      )}
     </AppShell>
   );
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -196,6 +226,9 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 function TimelineEntry({ memory }: { memory: Memory }) {
   const image = memory.media.find((m) => m.kind === 'image');
   const audio = memory.media.find((m) => m.kind === 'audio');
+  // A moment plays its stretch of a conversation.
+  const clip = memory.clips[0];
+  const listenMs = audio ? audio.durationMs : clip ? clip.endMs - clip.startMs : null;
   const text = memory.media.some((m) => m.kind === 'text');
   const photos = memory.media.filter((m) => m.kind === 'image' || m.kind === 'video').length;
   return (
@@ -204,22 +237,39 @@ function TimelineEntry({ memory }: { memory: Memory }) {
       className="flex items-center gap-4 rounded-xl border bg-card p-3 transition-colors hover:border-foreground/20"
     >
       <div className="w-10 shrink-0 text-center">
-        <div className="font-serif text-2xl leading-none">{format(memory.occurredAt, 'd')}</div>
-        <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-          {format(memory.occurredAt, 'EEE')}
-        </div>
+        {memory.occurredPrecision === 'day' ? (
+          <>
+            <div className="font-serif text-2xl leading-none">{format(memory.occurredAt, 'd')}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+              {format(memory.occurredAt, 'EEE')}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="font-serif text-lg leading-none">
+              {format(memory.occurredAt, memory.occurredPrecision === 'month' ? 'MMM' : 'yyyy')}
+            </div>
+            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+              {memory.occurredPrecision === 'month' ? 'month' : 'year'}
+            </div>
+          </>
+        )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 font-serif text-[1.02rem] leading-snug">{memorySummary(memory) || 'Photos'}</div>
+        <div className="line-clamp-2 font-serif text-[1.02rem] leading-snug">
+          {memorySummary(memory) || 'Photos'}
+        </div>
         <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           {!memory.isMine && <span>{memory.author.name}</span>}
-          {memory.collections[0] && <span className="truncate">{memory.collections.map((c) => c.name).join(', ')}</span>}
-          {audio && (
+          {memory.collections[0] && (
+            <span className="truncate">{memory.collections.map((c) => c.name).join(', ')}</span>
+          )}
+          {(audio || clip) && (
             <span className="inline-flex items-center gap-0.5">
-              <Mic className="size-3" /> {formatDuration(audio.durationMs)}
+              <Mic className="size-3" /> {formatDuration(listenMs)}
             </span>
           )}
-          {text && !audio && <PenLine className="size-3" />}
+          {text && !audio && !clip && <PenLine className="size-3" />}
           {photos > 0 && (
             <span className="inline-flex items-center gap-0.5">
               <Camera className="size-3" /> {photos}
@@ -227,7 +277,14 @@ function TimelineEntry({ memory }: { memory: Memory }) {
           )}
         </div>
       </div>
-      {image && <img src={image.url!} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />}
+      {image && (
+        <img
+          src={image.url!}
+          alt=""
+          loading="lazy"
+          className="size-14 shrink-0 rounded-lg object-cover"
+        />
+      )}
     </Link>
   );
 }

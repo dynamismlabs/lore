@@ -7,6 +7,7 @@
  * 3. Neither → the audio is kept and the transcript is marked unavailable.
  */
 import { getEnvVar, tryGetCloudflareEnv } from '@/lib/server/cloudflare';
+import type { TranscriptSegment } from '@/db/constants';
 
 const GROQ_MODEL = 'whisper-large-v3-turbo';
 const WORKERS_AI_MODEL = '@cf/openai/whisper-large-v3-turbo';
@@ -25,10 +26,16 @@ export function getTranscriptionProvider(): TranscriptionProvider | null {
 
 export class TranscriptionError extends Error {}
 
+export interface Transcript {
+  text: string;
+  /** When each line was said; empty if the provider didn't say. */
+  segments: TranscriptSegment[];
+}
+
 export async function transcribeAudio(audio: {
   bytes: ArrayBuffer;
   contentType: string;
-}): Promise<string> {
+}): Promise<Transcript> {
   const provider = getTranscriptionProvider();
   if (provider === 'groq') return transcribeWithGroq(audio);
   if (provider === 'workers-ai') return transcribeWithWorkersAi(audio);
@@ -62,7 +69,7 @@ async function transcribeWithGroq({
     `recording.${extensionFor(contentType)}`,
   );
   form.append('model', GROQ_MODEL);
-  form.append('response_format', 'json');
+  form.append('response_format', 'verbose_json');
 
   const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
     method: 'POST',
@@ -75,8 +82,8 @@ async function transcribeWithGroq({
       `Groq transcription failed (${res.status}) ${detail.slice(0, 200)}`,
     );
   }
-  const json = (await res.json()) as { text?: string };
-  return (json.text ?? '').trim();
+  const json = (await res.json()) as { text?: string; segments?: WhisperSegment[] };
+  return { text: (json.text ?? '').trim(), segments: toSegments(json.segments) };
 }
 
 async function transcribeWithWorkersAi({ bytes }: { bytes: ArrayBuffer; contentType: string }) {
@@ -85,8 +92,26 @@ async function transcribeWithWorkersAi({ bytes }: { bytes: ArrayBuffer; contentT
   if (bytes.byteLength > WORKERS_AI_MAX_BYTES) {
     throw new TranscriptionError('Recording is too long to transcribe');
   }
-  const result = (await ai.run(WORKERS_AI_MODEL, { audio: toBase64(bytes) })) as { text?: string };
-  return (result.text ?? '').trim();
+  const result = await ai.run(WORKERS_AI_MODEL, { audio: toBase64(bytes) });
+  return { text: (result.text ?? '').trim(), segments: toSegments(result.segments) };
+}
+
+/** Whisper segment, as both providers return it (times in seconds). */
+interface WhisperSegment {
+  start?: number;
+  end?: number;
+  text?: string;
+}
+
+export function toSegments(segments: WhisperSegment[] | undefined): TranscriptSegment[] {
+  const result: TranscriptSegment[] = [];
+  for (const segment of segments ?? []) {
+    const text = segment.text?.trim();
+    if (!text || typeof segment.start !== 'number' || typeof segment.end !== 'number') continue;
+    const startMs = Math.max(0, Math.round(segment.start * 1000));
+    result.push({ startMs, endMs: Math.max(startMs, Math.round(segment.end * 1000)), text });
+  }
+  return result;
 }
 
 function toBase64(bytes: ArrayBuffer) {

@@ -15,6 +15,15 @@ import { protectedProcedure, router } from '../trpc';
 const id = z.string().min(1).max(64);
 const name = z.string().trim().min(1).max(80);
 const relationship = z.string().trim().max(80).nullable().optional();
+const birthDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .refine((value) => {
+    const date = new Date(`${value}T12:00:00Z`);
+    return date.toISOString().startsWith(value) && date.getTime() <= Date.now() + 86_400_000;
+  }, 'That isn’t a real date')
+  .nullable()
+  .optional();
 
 /** SQL condition on the `people` row: visible to `userId`. */
 export function visiblePeopleCondition(db: Db, userId: string) {
@@ -81,6 +90,7 @@ export const peopleRouter = router({
       id: p.id,
       name: p.name,
       relationship: p.relationship,
+      birthDate: p.birthDate,
       isMine: p.ownerId === userId,
       storyCount: byId.get(p.id) ?? 0,
     }));
@@ -92,12 +102,13 @@ export const peopleRouter = router({
       id: person.id,
       name: person.name,
       relationship: person.relationship,
+      birthDate: person.birthDate,
       isMine: person.ownerId === ctx.userId,
     };
   }),
 
   create: protectedProcedure
-    .input(z.object({ name, relationship }))
+    .input(z.object({ name, relationship, birthDate }))
     .mutation(async ({ ctx, input }) => {
       const [created] = await ctx.db
         .insert(people)
@@ -106,23 +117,26 @@ export const peopleRouter = router({
           ownerId: ctx.userId,
           name: input.name,
           relationship: input.relationship || null,
+          birthDate: input.birthDate || null,
         })
         .returning();
       return {
         id: created.id,
         name: created.name,
         relationship: created.relationship,
+        birthDate: created.birthDate,
         isMine: true,
       };
     }),
 
   update: protectedProcedure
-    .input(z.object({ id, name: name.optional(), relationship }))
+    .input(z.object({ id, name: name.optional(), relationship, birthDate }))
     .mutation(async ({ ctx, input }) => {
       await requireOwnedPerson(ctx.db, ctx.userId, input.id);
       const changes: Partial<typeof people.$inferInsert> = { updatedAt: new Date() };
       if (input.name) changes.name = input.name;
       if (input.relationship !== undefined) changes.relationship = input.relationship || null;
+      if (input.birthDate !== undefined) changes.birthDate = input.birthDate || null;
       await ctx.db.update(people).set(changes).where(eq(people.id, input.id));
       return { id: input.id };
     }),

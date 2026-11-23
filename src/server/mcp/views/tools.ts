@@ -86,6 +86,7 @@ async function toViewMemory(
     id: memory.id,
     title: memory.title,
     occurredAt: memory.occurredAt.toISOString(),
+    occurredPrecision: memory.occurredPrecision,
     author: memory.author.name,
     isMine: memory.isMine,
     collections: memory.collections.map((c) => c.name),

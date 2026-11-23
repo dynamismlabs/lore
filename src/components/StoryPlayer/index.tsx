@@ -10,8 +10,18 @@
  * start" screen unlocks it.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { format } from 'date-fns';
-import { Loader2, Maximize, Minimize, Pause, Play, RotateCcw, Volume2, VolumeX, X } from 'lucide-react';
+import {
+  Loader2,
+  Maximize,
+  Minimize,
+  Pause,
+  Play,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
+import { longDate } from '@/lib/client/dates';
 import { type Memory, type RouterInputs, trpc } from '@/lib/client/trpc';
 import { cn } from '@/lib/utils';
 import UserAvatar from '@/components/UserAvatar';
@@ -204,7 +214,10 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
       if (!current) return go(index + 1);
       if (current.kind === 'video') {
         const video = videoRef.current;
-        const f = video && video.duration > 0 && Number.isFinite(video.duration) ? video.currentTime / video.duration : 0;
+        const f =
+          video && video.duration > 0 && Number.isFinite(video.duration)
+            ? video.currentTime / video.duration
+            : 0;
         setFill((rawShot + f) / plan.shots.length);
         return; // the video's `ended` moves on
       }
@@ -309,7 +322,8 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
     }
   }, [slideKey, scrollMs]);
   useEffect(() => {
-    if (wordsRef.current) wordsRef.current.style.animationPlayState = playing && !needsTap ? 'running' : 'paused';
+    if (wordsRef.current)
+      wordsRef.current.style.animationPlayState = playing && !needsTap ? 'running' : 'paused';
   }, [playing, needsTap]);
 
   // Other players on the page stop; controls hide when nobody's touching anything.
@@ -345,7 +359,8 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
     const nextPlan = planFor(next);
     const firstImage = nextPlan.shots.find((s) => s.kind === 'image');
     if (firstImage?.url) new Image().src = firstImage.url;
-    if (nextPlan.audio?.url) fetch(nextPlan.audio.url, { credentials: 'same-origin' }).catch(() => {});
+    if (nextPlan.audio?.url)
+      fetch(nextPlan.audio.url, { credentials: 'same-origin' }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- per slide
   }, [index, memories.length]);
 
@@ -407,7 +422,9 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
         <audio
           ref={audioRef}
           preload="auto"
-          onError={() => memory && audioRef.current?.getAttribute('src') && setAudioFailedFor(memory.id)}
+          onError={() =>
+            memory && audioRef.current?.getAttribute('src') && setAudioFailedFor(memory.id)
+          }
         />
 
         {/* One shared video element (see the note at the top), under the slide's words. */}
@@ -430,7 +447,11 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
               <h2 className="max-w-4xl font-serif text-5xl font-medium leading-[1.05] tracking-tight sm:text-7xl">
                 {title}
               </h2>
-              {subtitle && <p className="mt-6 max-w-xl font-serif text-xl text-white/70 sm:text-2xl">{subtitle}</p>}
+              {subtitle && (
+                <p className="mt-6 max-w-xl font-serif text-xl text-white/70 sm:text-2xl">
+                  {subtitle}
+                </p>
+              )}
               {query.isPending && <Loader2 className="mt-10 size-5 animate-spin text-white/50" />}
             </div>
           )}
@@ -455,7 +476,10 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
                         <div
                           key={`${slideKey}-${r}`}
                           // Opaque, so the photo underneath only shows while this one fades in.
-                          className={cn('absolute inset-0 overflow-hidden bg-black', isCurrent && 'duration-1000 animate-in fade-in-0')}
+                          className={cn(
+                            'absolute inset-0 overflow-hidden bg-black',
+                            isCurrent && 'duration-1000 animate-in fade-in-0',
+                          )}
                         >
                           <img
                             src={media.url!}
@@ -487,7 +511,9 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
                   <div className="mx-auto max-w-3xl">
                     <Byline memory={memory} sound={mode === 'audio' && playing && !needsTap} />
                     {memory.title && (
-                      <h2 className="mt-3 font-serif text-3xl font-medium leading-tight sm:text-5xl">{memory.title}</h2>
+                      <h2 className="mt-3 font-serif text-3xl font-medium leading-tight sm:text-5xl">
+                        {memory.title}
+                      </h2>
                     )}
                     {plan.words && (
                       <div
@@ -580,13 +606,30 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
           )}
         </div>
 
-
         {/* ---------- Tap zones: left back, right forward, middle pause ---------- */}
         {!atEnd && (
           <>
-            <button type="button" aria-label="Previous memory" className="absolute inset-y-20 left-0 z-10 w-1/3 cursor-[inherit] focus:outline-none" tabIndex={-1} onClick={() => go(index - 1)} />
-            <button type="button" aria-label={playing ? 'Pause' : 'Play'} className="absolute inset-y-20 left-1/3 z-10 w-1/3 cursor-[inherit] focus:outline-none" tabIndex={-1} onClick={togglePlay} />
-            <button type="button" aria-label="Next memory" className="absolute inset-y-20 right-0 z-10 w-1/3 cursor-[inherit] focus:outline-none" tabIndex={-1} onClick={() => go(index + 1)} />
+            <button
+              type="button"
+              aria-label="Previous memory"
+              className="absolute inset-y-20 left-0 z-10 w-1/3 cursor-[inherit] focus:outline-none"
+              tabIndex={-1}
+              onClick={() => go(index - 1)}
+            />
+            <button
+              type="button"
+              aria-label={playing ? 'Pause' : 'Play'}
+              className="absolute inset-y-20 left-1/3 z-10 w-1/3 cursor-[inherit] focus:outline-none"
+              tabIndex={-1}
+              onClick={togglePlay}
+            />
+            <button
+              type="button"
+              aria-label="Next memory"
+              className="absolute inset-y-20 right-0 z-10 w-1/3 cursor-[inherit] focus:outline-none"
+              tabIndex={-1}
+              onClick={() => go(index + 1)}
+            />
           </>
         )}
         {!playing && !atEnd && !needsTap && (
@@ -608,7 +651,10 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
             <div className="flex h-0.5 gap-1" aria-hidden>
               {segmented ? (
                 memories.map((m, i) => (
-                  <span key={m.id} className="relative h-full flex-1 overflow-hidden rounded-full bg-white/25">
+                  <span
+                    key={m.id}
+                    className="relative h-full flex-1 overflow-hidden rounded-full bg-white/25"
+                  >
                     <span
                       ref={i === index - 1 ? fillRef : undefined}
                       className="absolute inset-0 origin-left bg-white"
@@ -618,7 +664,11 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
                 ))
               ) : (
                 <span className="relative h-full flex-1 overflow-hidden rounded-full bg-white/25">
-                  <span ref={fillRef} className="absolute inset-0 origin-left bg-white" style={{ transform: 'scaleX(0)' }} />
+                  <span
+                    ref={fillRef}
+                    className="absolute inset-0 origin-left bg-white"
+                    style={{ transform: 'scaleX(0)' }}
+                  />
                 </span>
               )}
             </div>
@@ -643,7 +693,10 @@ export default function StoryPlayer({ title, subtitle, filters, onClose }: Props
               {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
             </ControlButton>
             {canFullscreen && (
-              <ControlButton label={fullscreen ? 'Exit full screen' : 'Full screen'} onClick={toggleFullscreen}>
+              <ControlButton
+                label={fullscreen ? 'Exit full screen' : 'Full screen'}
+                onClick={toggleFullscreen}
+              >
                 {fullscreen ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
               </ControlButton>
             )}
@@ -680,7 +733,7 @@ function Byline({ memory, sound }: { memory: Memory; sound: boolean }) {
       />
       <span className="min-w-0 truncate">
         <span className="font-medium text-white">{memory.author.name}</span> ·{' '}
-        {format(memory.occurredAt, 'EEEE, MMMM d, yyyy')}
+        {longDate(memory.occurredAt, memory.occurredPrecision)}
       </span>
       {sound && (
         <span className="ml-1 flex h-3.5 items-end gap-[3px]" aria-label="Playing">

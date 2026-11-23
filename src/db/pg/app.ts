@@ -9,6 +9,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   timestamp as pgTimestamp,
   primaryKey,
@@ -16,9 +17,19 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { MEDIA_KINDS, MEMBER_ROLES, STORY_FORMATS, TRANSCRIPT_STATUSES } from '../constants';
+import {
+  DATE_PRECISIONS,
+  MEDIA_KINDS,
+  MEMBER_ROLES,
+  MOMENT_STATUSES,
+  STORY_FORMATS,
+  type SuggestedPerson,
+  TRANSCRIPT_STATUSES,
+  type TranscriptSegment,
+} from '../constants';
 
 const timestamp = (name: string) => pgTimestamp(name, { withTimezone: true, mode: 'date' });
+const json = <T>(name: string) => jsonb(name).$type<T>();
 const now = () => new Date();
 
 export const collections = pgTable(
@@ -94,6 +105,10 @@ export const stories = pgTable(
     format: text('format', { enum: STORY_FORMATS }),
     // When the memory happened (photo EXIF date, or when it was captured).
     occurredAt: timestamp('occurred_at').notNull().$defaultFn(now),
+    // 'month' / 'year': only that much is known; occurredAt is noon UTC on the first day.
+    occurredPrecision: text('occurred_precision', { enum: DATE_PRECISIONS })
+      .notNull()
+      .default('day'),
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
     updatedAt: timestamp('updated_at').notNull().$defaultFn(now),
   },
@@ -119,6 +134,8 @@ export const storyMedia = pgTable(
     // Markdown for text, transcript for audio/video, caption for images.
     text: text('text'),
     transcriptStatus: text('transcript_status', { enum: TRANSCRIPT_STATUSES }),
+    // When each line of the transcript was said, so moments can point into the audio.
+    transcriptSegments: json<TranscriptSegment[]>('transcript_segments'),
     durationMs: integer('duration_ms'),
     width: integer('width'),
     height: integer('height'),
@@ -154,6 +171,8 @@ export const people = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     relationship: text('relationship'),
+    // YYYY-MM-DD. A calendar date, not an instant, so it never shifts with time zones.
+    birthDate: text('birth_date'),
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
     updatedAt: timestamp('updated_at').notNull().$defaultFn(now),
   },
@@ -208,4 +227,48 @@ export const reactions = pgTable(
     createdAt: timestamp('created_at').notNull().$defaultFn(now),
   },
   (t) => [primaryKey({ columns: [t.storyId, t.userId, t.emoji] })],
+);
+
+/** Mirror of `story_clips` in `src/db/sqlite/app.ts`. */
+export const storyClips = pgTable(
+  'story_clips',
+  {
+    storyId: text('story_id')
+      .notNull()
+      .references(() => stories.id, { onDelete: 'cascade' }),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => storyMedia.id, { onDelete: 'cascade' }),
+    startMs: integer('start_ms').notNull(),
+    endMs: integer('end_ms').notNull(),
+    createdAt: timestamp('created_at').notNull().$defaultFn(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.storyId, t.mediaId, t.startMs] }),
+    index('story_clips_media_id_idx').on(t.mediaId),
+  ],
+);
+
+/** Mirror of `moment_suggestions` in `src/db/sqlite/app.ts`. */
+export const momentSuggestions = pgTable(
+  'moment_suggestions',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => storyMedia.id, { onDelete: 'cascade' }),
+    title: text('title'),
+    summary: text('summary').notNull(),
+    occurredAt: timestamp('occurred_at').notNull(),
+    occurredPrecision: text('occurred_precision', { enum: DATE_PRECISIONS })
+      .notNull()
+      .default('day'),
+    startMs: integer('start_ms'),
+    endMs: integer('end_ms'),
+    people: json<SuggestedPerson[]>('people').notNull().default([]),
+    status: text('status', { enum: MOMENT_STATUSES }).notNull().default('pending'),
+    storyId: text('story_id').references(() => stories.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().$defaultFn(now),
+  },
+  (t) => [index('moment_suggestions_media_id_idx').on(t.mediaId)],
 );

@@ -1,6 +1,7 @@
 /**
  * Minimal audio player. Uses the duration we recorded rather than the file's
- * metadata — browser-recorded WebM often reports an infinite duration.
+ * metadata — browser-recorded WebM often reports an infinite duration. With
+ * `startMs`/`endMs` it plays just that stretch (a moment from a conversation).
  */
 import { useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
@@ -10,21 +11,43 @@ import { cn } from '@/lib/utils';
 interface Props {
   src: string;
   durationMs?: number | null;
+  /** Play only this stretch of the recording. */
+  startMs?: number | null;
+  endMs?: number | null;
   size?: 'default' | 'large';
   className?: string;
 }
 
-export default function AudioPlayer({ src, durationMs, size = 'default', className }: Props) {
+export default function AudioPlayer({
+  src,
+  durationMs,
+  startMs = null,
+  endMs = null,
+  size = 'default',
+  className,
+}: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentMs, setCurrentMs] = useState(0);
   const [mediaDurationMs, setMediaDurationMs] = useState<number | null>(null);
-  const totalMs = durationMs || mediaDurationMs || 0;
+  const range = startMs != null && endMs != null && endMs > startMs ? [startMs, endMs] : null;
+  // The whole recording is a clip from 0 to forever.
+  const [clipStart, clipEnd] = range ?? [0, Infinity];
+  const totalMs = range ? clipEnd - clipStart : durationMs || mediaDurationMs || 0;
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => setCurrentMs(audio.currentTime * 1000);
+    const onTime = () => {
+      const ms = audio.currentTime * 1000;
+      if (ms >= clipEnd) {
+        audio.pause();
+        audio.currentTime = clipStart / 1000;
+        setCurrentMs(0);
+        return;
+      }
+      setCurrentMs(Math.max(0, ms - clipStart));
+    };
     const onMeta = () => {
       if (Number.isFinite(audio.duration)) setMediaDurationMs(audio.duration * 1000);
     };
@@ -48,7 +71,7 @@ export default function AudioPlayer({ src, durationMs, size = 'default', classNa
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, []);
+  }, [clipStart, clipEnd]);
 
   const toggle = () => {
     const audio = audioRef.current;
@@ -56,6 +79,8 @@ export default function AudioPlayer({ src, durationMs, size = 'default', classNa
     if (audio.paused) {
       // Only one memory plays at a time.
       document.querySelectorAll('audio').forEach((other) => other !== audio && other.pause());
+      const ms = audio.currentTime * 1000;
+      if (ms < clipStart || ms >= clipEnd) audio.currentTime = clipStart / 1000;
       audio.play().catch(() => setPlaying(false));
     } else {
       audio.pause();
@@ -98,7 +123,7 @@ export default function AudioPlayer({ src, durationMs, size = 'default', classNa
         onChange={(e) => {
           const audio = audioRef.current;
           if (!audio || !totalMs) return;
-          audio.currentTime = (Number(e.target.value) / 1000) * (totalMs / 1000);
+          audio.currentTime = (clipStart + (Number(e.target.value) / 1000) * totalMs) / 1000;
         }}
         className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground"
         style={{

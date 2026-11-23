@@ -46,8 +46,20 @@ function timeZone() {
   return bridge?.context.timeZone;
 }
 
-function dateLabel(iso: string) {
+function dateLabel(iso: string, precision: ViewMemory['occurredPrecision'] = 'day') {
   const date = new Date(iso);
+  if (precision !== 'day') {
+    // Stored as the first day of the period at noon UTC: read it in UTC.
+    try {
+      return new Intl.DateTimeFormat(bridge?.context.locale, {
+        year: 'numeric',
+        ...(precision === 'month' ? { month: 'long' as const } : {}),
+        timeZone: 'UTC',
+      }).format(date);
+    } catch {
+      return iso.slice(0, precision === 'month' ? 7 : 4);
+    }
+  }
   const sameYear = dayKey(date).slice(0, 4) === dayKey(new Date()).slice(0, 4);
   try {
     return new Intl.DateTimeFormat(bridge?.context.locale, {
@@ -141,7 +153,7 @@ function card(memory: ViewMemory) {
   const meta = h(
     'div',
     { className: 'meta' },
-    h('span', {}, dateLabel(memory.occurredAt)),
+    h('span', {}, dateLabel(memory.occurredAt, memory.occurredPrecision)),
     dot(),
     h('span', {}, memory.isMine ? 'You' : memory.author),
     memory.collections.length > 0 && [dot(), h('span', {}, memory.collections.join(', '))],

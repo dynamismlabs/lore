@@ -11,7 +11,7 @@ you apply settings and updates.
 | D1 database                 | `lore`         | All app data. Migrations are applied on every deploy.                                                                                                                  |
 | R2 bucket                   | `lore-media`   | Photos, recordings and videos. Private: files are only served through the app after an access check. Deleted files go to `trash/` and are removed after 30 days.       |
 | R2 bucket                   | `lore-backups` | Nightly full database dumps (03:17 UTC), kept 90 days. The script also attempts to lock them against deletion for their first 30 days; check deploy output to confirm. |
-| Workers AI                  | n/a            | Transcription when no Groq key is set. Uses Cloudflare's free daily allowance.                                                                                         |
+| Workers AI                  | n/a            | Transcription and moments when no Groq key is set. Uses Cloudflare's free daily allowance.                                                                             |
 | Secret `BETTER_AUTH_SECRET` | n/a            | Generated on the first deploy and stored only as a Worker secret, so sessions survive redeploys.                                                                       |
 
 The resource IDs are written to `wrangler.deploy.jsonc` (git-ignored), so your fork never commits account
@@ -81,7 +81,7 @@ are uploaded as encrypted Worker secrets.
 
 | Key                                                                         | Why                                                                                         |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GROQ_API_KEY`                                                              | Faster, more reliable transcripts (Groq Whisper `whisper-large-v3-turbo`). Recommended.     |
+| `GROQ_API_KEY`                                                              | Faster, more reliable transcripts and moments (`whisper-large-v3-turbo`, `gpt-oss-120b`).   |
 | `RESEND_API_KEY`, `EMAIL_FROM`                                              | Email invites and password resets. Without them, invites are links you send yourself.       |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                  | "Continue with Google". Redirect URI: `<your url>/api/auth/callback/google`.                |
 | `BETTER_AUTH_URL`                                                           | HTTPS origin for your custom domain; the deploy script attaches its hostname automatically. |

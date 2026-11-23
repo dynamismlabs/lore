@@ -4,6 +4,7 @@ import { connectionsRouter } from './routers/connections';
 import { invitesRouter } from './routers/invites';
 import { meRouter } from './routers/me';
 import { mediaRouter } from './routers/media';
+import { momentsRouter } from './routers/moments';
 import { peopleRouter } from './routers/people';
 import { reactionsRouter } from './routers/reactions';
 import { storiesRouter } from './routers/stories';
@@ -15,6 +16,7 @@ export const appRouter = router({
   invites: invitesRouter,
   stories: storiesRouter,
   media: mediaRouter,
+  moments: momentsRouter,
   people: peopleRouter,
   comments: commentsRouter,
   reactions: reactionsRouter,

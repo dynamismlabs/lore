@@ -8,6 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { RouterOutputs } from '@/lib/client/trpc';
+import { formatApproximateDate, parseApproximateDate } from '@/lib/dates';
 import { registerLoreViews } from './views/tools';
 import type { Context } from '@/server/trpc/context';
 import { appRouter } from '@/server/trpc/root';
@@ -53,7 +54,8 @@ function toSummary(memory: Memory, origin: string, textLimit: number) {
   return {
     id: memory.id,
     title: memory.title,
-    date: memory.occurredAt.toISOString().slice(0, 10),
+    // "2019" or "2019-06" when that's all that's known.
+    date: formatApproximateDate(memory.occurredAt, memory.occurredPrecision),
     author: memory.isMine ? `${memory.author.name} (you)` : memory.author.name,
     collections: memory.collections.map((c) => c.name),
     people: memory.people.map((p) => p.name),
@@ -124,13 +126,14 @@ function safe<A>(
 }
 
 function parseDate(value: string | undefined) {
-  if (!value) return undefined;
-  // A bare day means that day, not midnight UTC sliding into yesterday.
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
+  if (!value) return {};
+  // "2019", "2019-06", or a bare day (that day, not midnight UTC sliding into yesterday).
+  const approximate = parseApproximateDate(value);
+  const date = approximate?.date ?? new Date(value);
   if (Number.isNaN(date.getTime()))
-    throw new Error(`Couldn’t understand the date “${value}”. Use YYYY-MM-DD.`);
+    throw new Error(`Couldn’t understand the date “${value}”. Use YYYY-MM-DD, YYYY-MM or YYYY.`);
   if (date.getTime() > Date.now() + 86_400_000) throw new Error('That date is in the future.');
-  return date;
+  return { occurredAt: date, occurredPrecision: approximate?.precision ?? ('day' as const) };
 }
 
 async function resolvePeople(caller: Caller, names: string[]) {
@@ -335,7 +338,9 @@ export function createLoreMcpServer(ctx: Context & { viewer: NonNullable<Context
           .string()
           .max(40)
           .optional()
-          .describe('When it happened, YYYY-MM-DD (default: today)'),
+          .describe(
+            'When it happened: YYYY-MM-DD, or YYYY-MM / YYYY when only the month or year is known (default: today)',
+          ),
         collection_id: z.string().max(64).optional(),
         people: z
           .array(z.string().max(80))
@@ -350,7 +355,7 @@ export function createLoreMcpServer(ctx: Context & { viewer: NonNullable<Context
       const memory = await caller.stories.create({
         collectionId: collection_id,
         title: title?.trim() || undefined,
-        occurredAt: parseDate(date),
+        ...parseDate(date),
         media: [{ kind: 'text', text }],
         personIds,
       });

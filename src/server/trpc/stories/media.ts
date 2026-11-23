@@ -106,10 +106,14 @@ export async function transcribeMediaItem(
     if (!media.storageKey) throw new Error('No audio stored');
     const object = await storage.read(media.storageKey);
     if (!object) throw new Error('Audio not found');
-    const text = await transcribeAudio(object);
+    const { text, segments } = await transcribeAudio(object);
     await db
       .update(storyMedia)
-      .set({ text: text || null, transcriptStatus: 'done' })
+      .set({
+        text: text || null,
+        transcriptStatus: 'done',
+        transcriptSegments: segments.length ? segments : null,
+      })
       .where(eq(storyMedia.id, media.id));
     return { status: 'done', text: text || null };
   } catch (error) {
@@ -136,5 +140,7 @@ export function effectiveTranscriptStatus(
   createdAt: Date,
   now = Date.now(),
 ): TranscriptStatus | null {
-  return status === 'pending' && now - createdAt.getTime() > TRANSCRIPT_STALE_MS ? 'failed' : status;
+  return status === 'pending' && now - createdAt.getTime() > TRANSCRIPT_STALE_MS
+    ? 'failed'
+    : status;
 }

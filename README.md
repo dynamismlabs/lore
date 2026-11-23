@@ -51,7 +51,7 @@ pnpm dev                # http://localhost:3000
 ```
 
 Local dev uses Miniflare's D1 and R2, so uploads work without any accounts. Add `GROQ_API_KEY` to
-`.env.local` to get transcripts locally (see `.env.example`).
+`.env.local` to get transcripts and moments locally (see `.env.example`).
 
 ## Stack
 
@@ -62,6 +62,8 @@ Local dev uses Miniflare's D1 and R2, so uploads work without any accounts. Add 
   kept in lockstep by `src/db/parity.test.ts`. The test suite runs against both.
 - better-auth (email/password, optional Google), Tailwind + shadcn/ui, tiptap for writing.
 - Media lives in R2 (binding) or any S3-compatible bucket. Transcription uses Groq Whisper or Workers AI.
+- Moments: a long recording is split into suggested memories, each dated (to the day, month or year)
+  and pointing at its stretch of the audio, by `openai/gpt-oss-120b` on Groq or Workers AI.
 
 ### Using Postgres instead of D1
 

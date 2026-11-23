@@ -9,6 +9,8 @@ export interface ViewMemory {
   title: string | null;
   /** ISO time. The view formats it in the host's locale and time zone. */
   occurredAt: string;
+  /** 'month' / 'year': only that much is known (occurredAt is the first day, noon UTC). */
+  occurredPrecision: 'day' | 'month' | 'year';
   author: string;
   isMine: boolean;
   collections: string[];

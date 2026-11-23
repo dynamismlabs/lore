@@ -15,10 +15,11 @@ import {
 } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
+import { anchorDate } from '@/lib/dates';
 import { runInBackground } from '@/lib/server/cloudflare';
 import { visiblePeopleCondition } from './people';
 import { type Db, runBatch } from '@/db';
-import { STORY_FORMATS, type StoryFormat } from '@/db/constants';
+import { DATE_PRECISIONS, STORY_FORMATS, type StoryFormat } from '@/db/constants';
 import {
   collectionMembers,
   collectionStories,
@@ -197,6 +198,8 @@ export const storiesRouter = router({
         collectionId: id.optional(),
         title: z.string().trim().max(200).optional(),
         occurredAt: z.date().optional(),
+        /** How exactly the date is known; month/year dates are snapped to the first day. */
+        occurredPrecision: z.enum(DATE_PRECISIONS).optional(),
         media: z.array(mediaInputSchema).min(1).max(30),
         personIds: z.array(id).max(30).optional(),
         format: z.enum(STORY_FORMATS).optional(),
@@ -241,13 +244,15 @@ export const storiesRouter = router({
       }
 
       const now = new Date();
+      const occurredPrecision = input.occurredPrecision ?? 'day';
       await runBatch(db, (tx) => [
         tx.insert(stories).values({
           id: storyId,
           authorId: userId,
           title: input.title || null,
           format: input.format ?? null,
-          occurredAt: input.occurredAt ?? now,
+          occurredAt: anchorDate(input.occurredAt ?? now, occurredPrecision),
+          occurredPrecision,
           createdAt: now,
           updatedAt: now,
         }),
@@ -269,13 +274,19 @@ export const storiesRouter = router({
         id,
         title: z.string().trim().max(200).nullable().optional(),
         occurredAt: z.date().optional(),
+        /** Defaults to 'day' when only occurredAt is given. */
+        occurredPrecision: z.enum(DATE_PRECISIONS).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireStoryAuthor(ctx.db, ctx.userId, input.id);
+      const story = await requireStoryAuthor(ctx.db, ctx.userId, input.id);
       const changes: Partial<typeof stories.$inferInsert> = { updatedAt: new Date() };
       if (input.title !== undefined) changes.title = input.title || null;
-      if (input.occurredAt) changes.occurredAt = input.occurredAt;
+      if (input.occurredAt || input.occurredPrecision) {
+        const precision = input.occurredPrecision ?? 'day';
+        changes.occurredAt = anchorDate(input.occurredAt ?? story.occurredAt, precision);
+        changes.occurredPrecision = precision;
+      }
       await ctx.db.update(stories).set(changes).where(eq(stories.id, input.id));
       return { id: input.id };
     }),
@@ -462,6 +473,8 @@ export const storiesRouter = router({
           and(
             canReadStoryCondition(db, userId),
             isNull(stories.format),
+            // "Sometime in 2019" didn't happen on this day.
+            eq(stories.occurredPrecision, 'day'),
             or(
               ...windows.map((w) =>
                 and(gte(stories.occurredAt, w.start), lt(stories.occurredAt, w.end)),

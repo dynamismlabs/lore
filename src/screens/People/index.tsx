@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { Loader2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { personUrl } from '@/constants/pages';
@@ -76,26 +77,29 @@ export function PersonFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  existing?: { id: string; name: string; relationship: string | null };
+  existing?: { id: string; name: string; relationship: string | null; birthDate: string | null };
 }) {
   const utils = trpc.useUtils();
   const [name, setName] = useState(existing?.name ?? '');
   const [relationship, setRelationship] = useState(existing?.relationship ?? '');
+  const [birthDate, setBirthDate] = useState(existing?.birthDate ?? '');
+  const [today] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const create = trpc.people.create.useMutation();
   const update = trpc.people.update.useMutation();
   const busy = create.isPending || update.isPending;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (existing)
-      await update.mutateAsync({ id: existing.id, name, relationship: relationship || null });
-    else await create.mutateAsync({ name, relationship: relationship || null });
+    const fields = { name, relationship: relationship || null, birthDate: birthDate || null };
+    if (existing) await update.mutateAsync({ id: existing.id, ...fields });
+    else await create.mutateAsync(fields);
     utils.people.invalidate();
     utils.stories.invalidate();
     onOpenChange(false);
     if (!existing) {
       setName('');
       setRelationship('');
+      setBirthDate('');
     }
   };
 
@@ -129,6 +133,20 @@ export function PersonFormDialog({
               placeholder="Daughter, Grandpa, best friend…"
               maxLength={80}
             />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="person-birthday">Birthday (optional)</Label>
+            <Input
+              id="person-birthday"
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              min="1900-01-01"
+              max={today}
+            />
+            <p className="text-xs text-muted-foreground">
+              Lets Lore date stories like “when she was three”.
+            </p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={busy || !name.trim()}>

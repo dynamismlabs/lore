@@ -7,8 +7,15 @@
  * capped at 50 ids, well under D1's 100-bound-parameter limit.
  */
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { effectiveTranscriptStatus } from './media';
 import type { Db } from '@/db';
-import type { MediaKind, MemberRole, StoryFormat, TranscriptStatus } from '@/db/constants';
+import type {
+  DatePrecision,
+  MediaKind,
+  MemberRole,
+  StoryFormat,
+  TranscriptStatus,
+} from '@/db/constants';
 import {
   collectionMembers,
   collectionStories,
@@ -17,12 +24,12 @@ import {
   people,
   reactions,
   stories,
+  storyClips,
   storyMedia,
   storyPeople,
   users,
 } from '@/db/schema';
-import { roleAtLeast } from '../authz';
-import { effectiveTranscriptStatus } from './media';
+import { canReadStoryCondition, roleAtLeast } from '../authz';
 
 type StoryRow = typeof stories.$inferSelect;
 
@@ -41,15 +48,27 @@ export interface StoryMediaView {
   url: string | null;
 }
 
+/** A stretch of another memory's recording that this memory plays (a moment). */
+export interface StoryClipView {
+  mediaId: string;
+  url: string;
+  startMs: number;
+  endMs: number;
+  source: { id: string; title: string | null; occurredAt: Date; occurredPrecision: DatePrecision };
+}
+
 export interface StoryView {
   id: string;
   title: string | null;
   format: StoryFormat | null;
   occurredAt: Date;
+  occurredPrecision: DatePrecision;
   createdAt: Date;
   updatedAt: Date;
   author: { id: string; name: string; image: string | null };
   media: StoryMediaView[];
+  /** Only clips whose recording the viewer can also see. */
+  clips: StoryClipView[];
   collections: { id: string; name: string; isDefault: boolean; role: MemberRole }[];
   people: { id: string; name: string }[];
   commentCount: number;
@@ -75,7 +94,7 @@ export async function hydrateStories(
   const ids = rows.map((r) => r.id);
   const authorIds = [...new Set(rows.map((r) => r.authorId))];
 
-  const [authorRows, mediaRows, collectionRows, peopleRows, commentRows, reactionRows] =
+  const [authorRows, mediaRows, collectionRows, peopleRows, commentRows, reactionRows, clipRows] =
     await Promise.all([
       db
         .select({ id: users.id, name: users.name, image: users.image })
@@ -120,6 +139,23 @@ export async function hydrateStories(
         .select({ storyId: reactions.storyId, userId: reactions.userId })
         .from(reactions)
         .where(and(inArray(reactions.storyId, ids), eq(reactions.emoji, HEART))),
+      // `stories` here is the memory the recording belongs to: the viewer must be able to read it.
+      db
+        .select({
+          storyId: storyClips.storyId,
+          mediaId: storyClips.mediaId,
+          startMs: storyClips.startMs,
+          endMs: storyClips.endMs,
+          sourceId: stories.id,
+          sourceTitle: stories.title,
+          sourceOccurredAt: stories.occurredAt,
+          sourcePrecision: stories.occurredPrecision,
+        })
+        .from(storyClips)
+        .innerJoin(storyMedia, eq(storyMedia.id, storyClips.mediaId))
+        .innerJoin(stories, eq(stories.id, storyMedia.storyId))
+        .where(and(inArray(storyClips.storyId, ids), canReadStoryCondition(db, viewerId)))
+        .orderBy(asc(storyClips.startMs)),
     ]);
 
   const authors = new Map(authorRows.map((a) => [a.id, a]));
@@ -137,6 +173,7 @@ export async function hydrateStories(
   const peopleByStory = group(peopleRows);
   const commentCounts = new Map(commentRows.map((c) => [c.storyId, c.total]));
   const heartsByStory = group(reactionRows);
+  const clipsByStory = group(clipRows);
 
   return rows.map((row) => {
     const author = authors.get(row.authorId);
@@ -150,6 +187,7 @@ export async function hydrateStories(
       title: row.title,
       format: row.format,
       occurredAt: row.occurredAt,
+      occurredPrecision: row.occurredPrecision,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       author: { id: row.authorId, name: author?.name || 'Someone', image: author?.image ?? null },
@@ -165,6 +203,18 @@ export async function hydrateStories(
         width: m.width,
         height: m.height,
         url: m.kind === 'text' ? null : mediaUrl(m.id),
+      })),
+      clips: (clipsByStory.get(row.id) ?? []).map((c) => ({
+        mediaId: c.mediaId,
+        url: mediaUrl(c.mediaId),
+        startMs: c.startMs,
+        endMs: c.endMs,
+        source: {
+          id: c.sourceId,
+          title: c.sourceTitle,
+          occurredAt: c.sourceOccurredAt,
+          occurredPrecision: c.sourcePrecision,
+        },
       })),
       collections: storyCollections,
       people: (peopleByStory.get(row.id) ?? []).map(({ id, name }) => ({ id, name })),
